@@ -1,0 +1,281 @@
+```html
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Results</title>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        h1 {
+            margin-bottom: 30px;
+        }
+
+        .search {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+
+        input {
+            flex: 1;
+            padding: 10px;
+            font-size: 16px;
+        }
+
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+
+        .result {
+            border: 1px solid #ddd;
+            border-radius: 8px;
+            padding: 20px;
+        }
+
+        .row {
+            display: flex;
+            margin-bottom: 10px;
+        }
+
+        .label {
+            width: 120px;
+            font-weight: bold;
+        }
+
+        .loading {
+            display: none;
+        }
+
+        .error {
+            color: #c00;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <h1>Results</h1>
+
+    <div class="search">
+
+        <input
+            id="bib"
+            type="text"
+            placeholder="Enter BIB"
+        />
+
+        <button onclick="getResult()">
+            Search
+        </button>
+
+    </div>
+
+    <div id="loading" class="loading">
+        Loading...
+    </div>
+
+    <div id="result"></div>
+
+    <div id="error" class="error"></div>
+
+
+    <script>
+
+        /*
+         * These values will be replaced during deployment.
+         */
+
+        const GRAPHQL_ENDPOINT =
+            'GRAPHQL_ENDPOINT_PLACEHOLDER';
+
+        const API_KEY =
+            'API_KEY_PLACEHOLDER';
+
+
+        async function getResult() {
+
+            const bib =
+                document.getElementById('bib').value.trim();
+
+            const resultElement =
+                document.getElementById('result');
+
+            const errorElement =
+                document.getElementById('error');
+
+            const loadingElement =
+                document.getElementById('loading');
+
+
+            resultElement.innerHTML = '';
+
+            errorElement.innerHTML = '';
+
+
+            if (!bib) {
+
+                errorElement.innerText =
+                    'Please enter a BIB.';
+
+                return;
+            }
+
+
+            loadingElement.style.display = 'block';
+
+
+            const query = `
+                query GetResult($bib: String!) {
+
+                    getResult(bib: $bib) {
+
+                        bib
+                        revision
+                        eventId
+
+                    }
+                }
+            `;
+
+
+            try {
+
+                const response = await fetch(
+                    GRAPHQL_ENDPOINT,
+                    {
+                        method: 'POST',
+
+                        headers: {
+                            'Content-Type':
+                                'application/json',
+
+                            'x-api-key':
+                                API_KEY
+                        },
+
+                        body: JSON.stringify({
+                            query: query,
+
+                            variables: {
+                                bib: bib
+                            }
+                        })
+                    }
+                );
+
+
+                const data =
+                    await response.json();
+
+
+                if (data.errors) {
+
+                    throw new Error(
+                        data.errors[0].message
+                    );
+                }
+
+
+                const result =
+                    data.data.getResult;
+
+
+                if (!result) {
+
+                    resultElement.innerHTML =
+                        '<p>No result found.</p>';
+
+                    return;
+                }
+
+
+                resultElement.innerHTML = `
+
+                    <div class="result">
+
+                        <div class="row">
+                            <div class="label">
+                                BIB
+                            </div>
+
+                            <div>
+                                ${escapeHtml(result.bib)}
+                            </div>
+                        </div>
+
+
+                        <div class="row">
+                            <div class="label">
+                                Revision
+                            </div>
+
+                            <div>
+                                ${result.revision}
+                            </div>
+                        </div>
+
+
+                        <div class="row">
+                            <div class="label">
+                                Event ID
+                            </div>
+
+                            <div>
+                                ${escapeHtml(
+                                    result.eventId || ''
+                                )}
+                            </div>
+                        </div>
+
+                    </div>
+                `;
+
+            }
+
+            catch (error) {
+
+                console.error(error);
+
+                errorElement.innerText =
+                    'Error: ' + error.message;
+
+            }
+
+            finally {
+
+                loadingElement.style.display =
+                    'none';
+            }
+        }
+
+
+        function escapeHtml(value) {
+
+            return String(value)
+                .replaceAll('&', '&amp;')
+                .replaceAll('<', '&lt;')
+                .replaceAll('>', '&gt;')
+                .replaceAll('"', '&quot;')
+                .replaceAll("'", '&#039;');
+
+        }
+
+    </script>
+
+</body>
+
+</html>
+```
