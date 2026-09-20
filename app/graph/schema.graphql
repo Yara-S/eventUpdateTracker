@@ -1,0 +1,28 @@
+enum ResultStatus {
+  PROVISIONAL
+  CONFIRMED
+  OFFICIAL
+}
+
+type Result {
+  bib: ID!
+  lane: Int!
+  revision: Int!
+  status: ResultStatus!
+  timeMs: Int!
+}
+
+type EventStats {
+  eventId: ID!
+  athletesTracked: Int!
+  updatesAccepted: Int!
+  updatesIgnored: Int!
+}
+
+type Query {
+  events: [ID!]!
+  results(eventId: ID!): [Result!]!
+  eventStats(eventId: ID!): EventStats!
+  updatesIgnoredTotal: Int!
+  updatesRejected: Int!
+}

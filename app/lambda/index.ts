@@ -3,8 +3,10 @@ import {
   DynamoDBDocumentClient,
   QueryCommand,
   PutCommand,
-  UpdateCommand
+  UpdateCommand,
+  GetCommand
 } from "@aws-sdk/lib-dynamodb";
+import { Metrics, MetricUnit } from '@aws-lambda-powertools/metrics';
 
 const client = DynamoDBDocumentClient.from(
   new DynamoDBClient({})
@@ -25,6 +27,7 @@ interface Message {
 }
 
 interface Result {
+  eventId: string,
   bib: string,
   lane: number,
   revision: number,
@@ -32,45 +35,62 @@ interface Result {
   timeMs: number
 }
 
+interface Stats {
+  eventId: string,
+  athletesTracked: number,
+  updatesAccepted: number,
+  updatesIgnored:  number
+}
+
 async function getLastestRevision(bib: string) : Promise<Result | null>  {
   const bibResult = await client.send(
-    new QueryCommand({
-      TableName: RESULTS_TABLE!,
-      KeyConditionExpression: "#bib = :bib",
-
-      ExpressionAttributeNames: {
-        "#bib": "bib",
-      },
-
-      ExpressionAttributeValues: {
-        ":bib": bib,
-      },
-      ScanIndexForward: false,
-      Limit: 1,
-    })
-  );
-
-  return (bibResult.Items?.[0] as Result) ?? null;
-}
-
-async function createNewRecord(record: Message) : Promise<void>  {
-  const newRecord: Result = {
-    bib: record.bib,
-    lane: record.lane,
-    revision: record.revision,
-    status: record.status,
-    timeMs: record.timeMs
-  };
-
-  await client.send(
-    new PutCommand({
+    new GetCommand({
       TableName: RESULTS_TABLE,
-      Item: newRecord,
+      Key: {
+        bib: bib,
+      },
     })
   );
+
+  return (bibResult.Item as Result) ?? null;
 }
 
-async function updateRecord(record: Message, latestRevisionNumber: number) : Promise<void>  {
+async function getEventStats(eventId: string) : Promise<Stats>  {
+  const stat = await client.send(
+    new GetCommand({
+      TableName: EVENTS_TABLE,
+      Key: {
+        eventId: eventId,
+      },
+    })
+  );
+
+  const eventStat = stat.Item as Stats
+
+  if(!eventStat){
+    const newbornStat = {
+      eventId: eventId,
+      athletesTracked: 0,
+      updatesAccepted: 0,
+      updatesIgnored: 0
+    }
+    
+    await client.send(
+      new PutCommand({
+        TableName: EVENTS_TABLE,
+        Item: newbornStat
+      })
+    );
+
+    return newbornStat
+  }
+
+  return eventStat;
+}
+
+
+
+async function updateRecord(record: Result, latestRevisionNumber: number) : Promise<void>  {
   // Possible doubt: Would it exist a scenario with same bib but different lane? Would it mean corrupt?
   await client.send(
     new UpdateCommand({
@@ -98,30 +118,102 @@ async function updateRecord(record: Message, latestRevisionNumber: number) : Pro
   );
 }
 
-exports.handler = async (event: Message) => {
+enum Actions {
+  ignored = "RECORD IGNORED",
+  processed = "RECORD PROCESSED",
+  received = "RECORD RECEIVED"
+}
 
-    const lastestRevision = await getLastestRevision(event.bib);
+const validateMessage = (msg: Message) => {
+  const validStatus = ["PROVISIONAL", "CONFIRMED", "OFFICIAL"]
+  if(Object.values(msg).some(value => value == null)){
+    return false
+  }
+  if(!validStatus.includes(msg.status)){
+    return false
+  }
+  return true
+
+}
+const metrics = new Metrics({ namespace: process.env.REJECTION_METRIC_NAMESPACE!, serviceName: 'LambdaAPI' });
+
+
+exports.handler = async (event: any) => {
+
+    const ingest: Message = JSON.parse(event.body);
+    console.log(ingest)
+
     
-    // If there is no record this is the first record for this athlete 
+    const newRecord = {
+      eventId: ingest.eventId,
+      bib: ingest.bib,
+      lane: ingest.lane,
+      revision: ingest.revision,
+      status: ingest.status,
+      timeMs: ingest.timeMs
+    }
+
+    const logger = {
+      ...newRecord,
+      action: Actions.received
+    }
+
+    if(!validateMessage(ingest)){
+      // Here comes another doubt, in here the msg can have the eventId null, so how will the updatesIgnored be updated
+      console.log("Record corrupt")
+      logger.action = Actions.ignored
+        metrics.clearMetrics();
+        metrics.addMetric(process.env.REJECTION_METRIC_NAME!, MetricUnit.Count, 1);
+        metrics.publishStoredMetrics();
+
+      return {
+        statusCode: 422,
+        body: JSON.stringify({ message: "Record Invalid" }),
+      };
+    }
+
+    const lastestRevision = await getLastestRevision(ingest.bib);
+    const eventStats = await getEventStats(ingest.eventId)
+    
     if(!lastestRevision){
-      try{
-        await createNewRecord(event);
-        return;
-      } catch (e: any){
-        console.log("Throw error of API and log unprocessed")
+      //If has no lastest revision, it is a new bib
+      eventStats.athletesTracked =  eventStats.athletesTracked + 1
+      eventStats.updatesAccepted = eventStats.updatesAccepted + 1
+      await client.send(
+        new PutCommand({
+          TableName: RESULTS_TABLE,
+          Item: newRecord,
+        })
+      );
+    } else {
+      if(lastestRevision!.revision >= ingest.revision){
+        eventStats.updatesIgnored = eventStats.updatesIgnored + 1
+        console.log("Record ignored")
+        logger.action = Actions.ignored
       }
+      else {
+        updateRecord(newRecord, lastestRevision.revision)
+        logger.action = Actions.processed
+        eventStats.updatesAccepted = eventStats.updatesAccepted + 1
+      }
+      
+      
     }
+    
 
-    if(lastestRevision!.revision >= event.revision){
-      console.log("Ignored -- to do: include log and stats")
-      return
-    }
+    await client.send(
+      new PutCommand({
+        TableName: EVENTS_TABLE,
+        Item: eventStats,
+      })
+    )
 
-    await updateRecord(event, lastestRevision!.revision)
+    console.log(logger)
+
+    
 
     return {
-        statusCode: 200,
-        headers: { "Content-Type": "text/plain" },
-        body: JSON.stringify({ message: "Working" }),
+        statusCode: 201,
+        body: JSON.stringify({ message: "Record Received" }),
     };
 };
