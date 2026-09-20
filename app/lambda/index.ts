@@ -1,9 +1,7 @@
 import { DynamoDBClient } from "@aws-sdk/client-dynamodb";
 import {
   DynamoDBDocumentClient,
-  QueryCommand,
   PutCommand,
-  UpdateCommand,
   GetCommand
 } from "@aws-sdk/lib-dynamodb";
 import { Metrics, MetricUnit } from '@aws-lambda-powertools/metrics';
@@ -17,13 +15,13 @@ const client = DynamoDBDocumentClient.from(
 
 
 interface Message {
-    eventId: string,
-    bib: string,
-    lane: number,
-    revision: number,
-    status: string,
-    timeMs: number,
-    recordedAt: string
+    eventId: string | null,
+    bib: string | null,
+    lane: number | null,
+    revision: number | null,
+    status: string | null,
+    timeMs: number | null,
+    recordedAt: string | null
 }
 
 interface Result {
@@ -89,35 +87,6 @@ async function getEventStats(eventId: string) : Promise<Stats>  {
 }
 
 
-
-async function updateRecord(record: Result, latestRevisionNumber: number) : Promise<void>  {
-  // Possible doubt: Would it exist a scenario with same bib but different lane? Would it mean corrupt?
-  await client.send(
-    new UpdateCommand({
-      TableName: RESULTS_TABLE,
-
-      Key: {
-        id: record.bib,
-        revision: latestRevisionNumber,
-      },
-      UpdateExpression:
-        "SET #revision = :revision, #status = :status, #timeMs = :timeMs",
-
-      ExpressionAttributeNames: {
-        "#revision": "revision",
-        "#status": "status",
-        "#timeMs": "timeMs",
-      },
-
-      ExpressionAttributeValues: {
-        ":revision": record.revision,
-        ":status": record.status,
-        ":timeMs": record.timeMs,
-      },
-    })
-  );
-}
-
 enum Actions {
   ignored = "RECORD IGNORED",
   processed = "RECORD PROCESSED",
@@ -129,7 +98,7 @@ const validateMessage = (msg: Message) => {
   if(Object.values(msg).some(value => value == null)){
     return false
   }
-  if(!validStatus.includes(msg.status)){
+  if(!validStatus.includes(msg.status!)){
     return false
   }
   return true
@@ -145,12 +114,12 @@ exports.handler = async (event: any) => {
 
     
     const newRecord = {
-      eventId: ingest.eventId,
-      bib: ingest.bib,
-      lane: ingest.lane,
-      revision: ingest.revision,
-      status: ingest.status,
-      timeMs: ingest.timeMs
+      eventId: ingest.eventId!,
+      bib: ingest.bib!,
+      lane: ingest.lane!,
+      revision: ingest.revision!,
+      status: ingest.status!,
+      timeMs: ingest.timeMs!
     }
 
     const logger = {
@@ -172,10 +141,11 @@ exports.handler = async (event: any) => {
       };
     }
 
-    const lastestRevision = await getLastestRevision(ingest.bib);
-    const eventStats = await getEventStats(ingest.eventId)
+    const lastestRevision = await getLastestRevision(ingest.bib!);
+    const eventStats = await getEventStats(ingest.eventId!)
     
     if(!lastestRevision){
+      console.log("New record")
       //If has no lastest revision, it is a new bib
       eventStats.athletesTracked =  eventStats.athletesTracked + 1
       eventStats.updatesAccepted = eventStats.updatesAccepted + 1
@@ -185,22 +155,26 @@ exports.handler = async (event: any) => {
           Item: newRecord,
         })
       );
+      logger.action = Actions.processed
     } else {
-      if(lastestRevision!.revision >= ingest.revision){
+      if(lastestRevision!.revision >= ingest.revision!){
         eventStats.updatesIgnored = eventStats.updatesIgnored + 1
         console.log("Record ignored")
         logger.action = Actions.ignored
       }
       else {
-        updateRecord(newRecord, lastestRevision.revision)
+        await client.send(
+          new PutCommand({
+            TableName: RESULTS_TABLE,
+            Item: newRecord,
+          })
+        )
         logger.action = Actions.processed
         eventStats.updatesAccepted = eventStats.updatesAccepted + 1
       }
       
       
     }
-    
-
     await client.send(
       new PutCommand({
         TableName: EVENTS_TABLE,

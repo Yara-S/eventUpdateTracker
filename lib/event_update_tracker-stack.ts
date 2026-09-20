@@ -9,8 +9,8 @@ import { PolicyStatement } from "aws-cdk-lib/aws-iam";
 
 import * as s3 from "aws-cdk-lib/aws-s3";
 import * as s3deploy from "aws-cdk-lib/aws-s3-deployment";
-import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
-import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
+//import * as cloudfront from "aws-cdk-lib/aws-cloudfront";
+//import * as origins from "aws-cdk-lib/aws-cloudfront-origins";
 import path = require("path");
 
 export class EventUpdateTrackerStack extends cdk.Stack {
@@ -63,8 +63,15 @@ export class EventUpdateTrackerStack extends cdk.Stack {
       statistic: "Sum",
     });
 
+    // Trying to bypass import issue
+    const powertoolsLayer = lambda.LayerVersion.fromLayerVersionArn(
+      this,
+      'PowertoolsLayer',
+      `arn:aws:lambda:${this.region}:094274105915:layer:AWSLambdaPowertoolsTypeScriptV2:50`
+    );
+
     const apiLambda = new lambda.Function(this, "API-Lambda", {
-      runtime: lambda.Runtime.NODEJS_20_X,
+      runtime: lambda.Runtime.NODEJS_LATEST,
       code: lambda.Code.fromAsset("app/lambda"),
       handler: "index.handler",
       environment: {
@@ -73,6 +80,8 @@ export class EventUpdateTrackerStack extends cdk.Stack {
         REJECTION_METRIC_NAMESPACE: allRejectionsMetric.namespace,
         REJECTION_METRIC_NAME: allRejectionsMetric.metricName,
       },
+      layers: [powertoolsLayer],
+      
     });
 
     const rejectionResolverLambda = new lambda.Function(
@@ -191,36 +200,13 @@ export class EventUpdateTrackerStack extends cdk.Stack {
       autoDeleteObjects: true,
     });
 
-    const distribution = new cloudfront.Distribution(this, "CFDistribution", {
-      defaultRootObject: "index.html",
-      defaultBehavior: {
-        origin: origins.S3BucketOrigin.withOriginAccessControl(s3Bucket),
-        viewerProtocolPolicy: cloudfront.ViewerProtocolPolicy.REDIRECT_TO_HTTPS,
-        cachePolicy: cloudfront.CachePolicy.CACHING_DISABLED,
-      },
-      errorResponses: [
-        {
-          httpStatus: 403,
-          responseHttpStatus: 200,
-          responsePagePath: "/index.html",
-        },
-        {
-          httpStatus: 404,
-          responseHttpStatus: 200,
-          responsePagePath: "/index.html",
-        },
-      ],
-    });
 
+    // Blocked by AWS
     new s3deploy.BucketDeployment(this, "DeployWebsite", {
       sources: [s3deploy.Source.asset(path.join(__dirname, "../assets/s3"))],
       destinationBucket: s3Bucket,
-      distribution,
-      distributionPaths: ["/*"],
     });
 
-    new cdk.CfnOutput(this, 'WebsiteUrl', {
-      value: `https://${distribution.distributionDomainName}`,
-  });
+    
   }
 }
