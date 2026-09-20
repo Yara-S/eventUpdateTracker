@@ -25,3 +25,33 @@ Implementations I would do/complete if could dedicate more time:
 
 1. As I did not had idea how to setup a graphQL API using CDK I used AI to help me during this part and generate the schema, the resolvers and also the s3 html static file. As I was running out of time I rely on AI to help me accelerate this last stage.
 
+### P.O.C
+
+![Invalid record
+](image.png)
+
+Creating record for the first time:
+
+![alt text](image-1.png)
+
+![alt text](image-2.png)
+![alt text](image-3.png)
+
+Receiving request for the same BIB with same revision
+
+![alt text](image-4.png)
+![alt text](image-5.png)
+
+Receiving new revision
+
+![alt text](image-6.png)
+![alt text](image-7.png)
+
+GraphQL API Schema:
+![alt text](image-8.png)
+
+![The updateRejected count failed but I did not have time to debug](image-9.png)
+
+The static file:
+![alt text](image-10.png)
+![alt text](image-11.png)

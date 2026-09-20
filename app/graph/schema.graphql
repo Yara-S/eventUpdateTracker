@@ -5,6 +5,7 @@ enum ResultStatus {
 }
 
 type Result {
+  eventId: ID!
   bib: ID!
   lane: Int!
   revision: Int!

@@ -1,363 +1,548 @@
 <!DOCTYPE html>
+
 <html lang="en">
 
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-    <title>Results</title>
+```
+<title>Event Results</title>
 
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 40px auto;
-            padding: 0 20px;
-        }
+<style>
+    body {
+        font-family: Arial, sans-serif;
+        max-width: 1000px;
+        margin: 40px auto;
+        padding: 0 20px;
+    }
 
-        h1 {
-            margin-bottom: 30px;
-        }
+    h1 {
+        margin-bottom: 30px;
+    }
 
-        .config {
-            margin-bottom: 30px;
-        }
+    h2 {
+        margin-top: 30px;
+        margin-bottom: 15px;
+    }
 
-        .field {
-            margin-bottom: 15px;
-        }
+    .config {
+        margin-bottom: 30px;
+    }
 
-        .field label {
-            display: block;
-            font-weight: bold;
-            margin-bottom: 5px;
-        }
+    .field {
+        margin-bottom: 15px;
+    }
 
-        input {
-            width: 100%;
-            box-sizing: border-box;
-            padding: 10px;
-            font-size: 16px;
-        }
+    .field label {
+        display: block;
+        font-weight: bold;
+        margin-bottom: 5px;
+    }
 
-        .search {
-            display: flex;
-            gap: 10px;
-            margin-bottom: 30px;
-        }
+    input {
+        width: 100%;
+        box-sizing: border-box;
+        padding: 10px;
+        font-size: 16px;
+    }
 
-        .search input {
-            flex: 1;
-        }
+    .search {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 30px;
+    }
 
-        button {
-            padding: 10px 20px;
-            font-size: 16px;
-            cursor: pointer;
-        }
+    .search input {
+        flex: 1;
+    }
 
-        .result {
-            border: 1px solid #ddd;
-            border-radius: 8px;
-            padding: 20px;
-        }
+    button {
+        padding: 10px 20px;
+        font-size: 16px;
+        cursor: pointer;
+    }
 
-        .row {
-            display: flex;
-            margin-bottom: 10px;
-        }
+    .section {
+        margin-bottom: 30px;
+    }
 
-        .label {
-            width: 120px;
-            font-weight: bold;
-        }
+    .result {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 20px;
+        margin-bottom: 15px;
+    }
 
-        .loading {
-            display: none;
-        }
+    .row {
+        display: flex;
+        margin-bottom: 10px;
+    }
 
-        .error {
-            color: #c00;
-            margin-top: 20px;
-        }
-    </style>
+    .label {
+        width: 180px;
+        font-weight: bold;
+    }
+
+    .stats {
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        padding: 20px;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    th,
+    td {
+        border: 1px solid #ddd;
+        padding: 10px;
+        text-align: left;
+    }
+
+    th {
+        font-weight: bold;
+    }
+
+    .loading {
+        display: none;
+        margin-bottom: 20px;
+    }
+
+    .error {
+        color: #c00;
+        margin-top: 20px;
+    }
+
+    .empty {
+        color: #666;
+    }
+</style>
+```
+
 </head>
 
 <body>
 
-    <h1>Results</h1>
+```
+<h1>Event Results</h1>
 
 
-    <!-- GraphQL configuration -->
+<!-- GraphQL configuration -->
 
-    <div class="config">
+<div class="config">
 
-        <div class="field">
+    <div class="field">
 
-            <label for="endpoint">
-                GraphQL Endpoint
-            </label>
-
-            <input
-                id="endpoint"
-                type="text"
-                placeholder="https://xxxxxxxxxx.appsync-api.ap-southeast-2.amazonaws.com/graphql"
-            />
-
-        </div>
-
-
-        <div class="field">
-
-            <label for="apiKey">
-                API Key
-            </label>
-
-            <input
-                id="apiKey"
-                type="text"
-                placeholder="Enter API key"
-            />
-
-        </div>
-
-    </div>
-
-
-    <!-- BIB search -->
-
-    <div class="search">
+        <label for="endpoint">
+            GraphQL Endpoint
+        </label>
 
         <input
-            id="bib"
+            id="endpoint"
             type="text"
-            placeholder="Enter BIB"
+            placeholder="https://xxxxxxxxxx.appsync-api.ap-southeast-2.amazonaws.com/graphql"
         />
 
-        <button onclick="getResult()">
-            Search
-        </button>
-
     </div>
 
 
-    <div id="loading" class="loading">
-        Loading...
+    <div class="field">
+
+        <label for="apiKey">
+            API Key
+        </label>
+
+        <input
+            id="apiKey"
+            type="text"
+            placeholder="Enter API key"
+        />
+
     </div>
 
-    <div id="result"></div>
-
-    <div id="error" class="error"></div>
+</div>
 
 
-    <script>
+<!-- Event search -->
 
-        async function getResult() {
+<div class="search">
 
-            const endpoint =
-                document.getElementById('endpoint').value.trim();
+    <input
+        id="eventId"
+        type="text"
+        placeholder="Enter Event ID"
+    />
 
-            const apiKey =
-                document.getElementById('apiKey').value.trim();
+    <button onclick="getEventData()">
+        Search
+    </button>
 
-            const bib =
-                document.getElementById('bib').value.trim();
-
-
-            const resultElement =
-                document.getElementById('result');
-
-            const errorElement =
-                document.getElementById('error');
-
-            const loadingElement =
-                document.getElementById('loading');
+</div>
 
 
-            resultElement.innerHTML = '';
+<div id="loading" class="loading">
+    Loading...
+</div>
 
-            errorElement.innerHTML = '';
+<div id="result"></div>
 
-
-            /*
-             * Validate endpoint
-             */
-
-            if (!endpoint) {
-
-                errorElement.innerText =
-                    'Please enter the GraphQL endpoint.';
-
-                return;
-            }
+<div id="error" class="error"></div>
 
 
-            /*
-             * Validate API key
-             */
+<script>
 
-            if (!apiKey) {
+    async function getEventData() {
 
-                errorElement.innerText =
-                    'Please enter the API key.';
+        const endpoint =
+            document.getElementById('endpoint').value.trim();
 
-                return;
-            }
+        const apiKey =
+            document.getElementById('apiKey').value.trim();
 
-
-            /*
-             * Validate BIB
-             */
-
-            if (!bib) {
-
-                errorElement.innerText =
-                    'Please enter a BIB.';
-
-                return;
-            }
+        const eventId =
+            document.getElementById('eventId').value.trim();
 
 
-            loadingElement.style.display =
-                'block';
+        const resultElement =
+            document.getElementById('result');
+
+        const errorElement =
+            document.getElementById('error');
+
+        const loadingElement =
+            document.getElementById('loading');
 
 
-            const query = `
-                query GetResult($bib: String!) {
+        resultElement.innerHTML = '';
 
-                    getResult(bib: $bib) {
+        errorElement.innerHTML = '';
 
-                        bib
-                        revision
-                        eventId
 
-                    }
+        /*
+         * Validate endpoint
+         */
+
+        if (!endpoint) {
+
+            errorElement.innerText =
+                'Please enter the GraphQL endpoint.';
+
+            return;
+        }
+
+
+        /*
+         * Validate API key
+         */
+
+        if (!apiKey) {
+
+            errorElement.innerText =
+                'Please enter the API key.';
+
+            return;
+        }
+
+
+        /*
+         * Validate Event ID
+         */
+
+        if (!eventId) {
+
+            errorElement.innerText =
+                'Please enter an Event ID.';
+
+            return;
+        }
+
+
+        loadingElement.style.display =
+            'block';
+
+
+        /*
+         * GraphQL query
+         */
+
+        const query = `
+            query GetEventData($eventId: ID!) {
+
+                events
+
+                results(eventId: $eventId) {
+
+                    bib
+                    lane
+                    revision
+                    status
+                    timeMs
+
                 }
+
+                eventStats(eventId: $eventId) {
+
+                    eventId
+                    athletesTracked
+                    updatesAccepted
+                    updatesIgnored
+
+                }
+
+                updatesRejected
+
+            }
+        `;
+
+
+        try {
+
+            const response = await fetch(
+                endpoint,
+                {
+                    method: 'POST',
+
+                    headers: {
+                        'Content-Type':
+                            'application/json',
+
+                        'x-api-key':
+                            apiKey
+                    },
+
+                    body: JSON.stringify({
+
+                        query: query,
+
+                        variables: {
+                            eventId: eventId
+                        }
+
+                    })
+                }
+            );
+
+
+            const data =
+                await response.json();
+
+
+            /*
+             * Check HTTP errors
+             */
+
+            if (!response.ok) {
+
+                throw new Error(
+                    `HTTP ${response.status}: ${response.statusText}`
+                );
+
+            }
+
+
+            /*
+             * Check GraphQL errors
+             */
+
+            if (data.errors) {
+
+                throw new Error(
+                    data.errors
+                        .map(error => error.message)
+                        .join(', ')
+                );
+
+            }
+
+
+            const eventData =
+                data.data;
+
+
+            /*
+             * Extract data
+             */
+
+            const results =
+                eventData.results || [];
+
+            const eventStats =
+                eventData.eventStats;
+
+            const events =
+                eventData.events || [];
+
+            const updatesRejected =
+                eventData.updatesRejected;
+
+
+            /*
+             * Build Results section
+             */
+
+            let resultsHtml = `
+                <div class="section">
+
+                    <h2>Results</h2>
             `;
 
 
-            try {
+            if (results.length === 0) {
 
-                const response = await fetch(
-                    endpoint,
-                    {
-                        method: 'POST',
+                resultsHtml += `
+                    <p class="empty">
+                        No results found for this event.
+                    </p>
+                `;
 
-                        headers: {
-                            'Content-Type':
-                                'application/json',
+            } else {
 
-                            'x-api-key':
-                                apiKey
-                        },
+                resultsHtml += `
 
-                        body: JSON.stringify({
+                    <table>
 
-                            query: query,
+                        <thead>
 
-                            variables: {
-                                bib: bib
-                            }
+                            <tr>
+                                <th>BIB</th>
+                                <th>Lane</th>
+                                <th>Revision</th>
+                                <th>Status</th>
+                                <th>Time (ms)</th>
+                            </tr>
 
-                        })
-                    }
-                );
+                        </thead>
 
-
-                const data =
-                    await response.json();
+                        <tbody>
+                `;
 
 
-                /*
-                 * Check HTTP errors
-                 */
+                results.forEach(result => {
 
-                if (!response.ok) {
+                    resultsHtml += `
 
-                    throw new Error(
-                        `HTTP ${response.status}: ${response.statusText}`
-                    );
+                        <tr>
 
-                }
-
-
-                /*
-                 * Check GraphQL errors
-                 */
-
-                if (data.errors) {
-
-                    throw new Error(
-                        data.errors[0].message
-                    );
-
-                }
-
-
-                const result =
-                    data.data.getResult;
-
-
-                /*
-                 * No result
-                 */
-
-                if (!result) {
-
-                    resultElement.innerHTML =
-                        '<p>No result found.</p>';
-
-                    return;
-
-                }
-
-
-                /*
-                 * Display result
-                 */
-
-                resultElement.innerHTML = `
-
-                    <div class="result">
-
-                        <div class="row">
-
-                            <div class="label">
-                                BIB
-                            </div>
-
-                            <div>
+                            <td>
                                 ${escapeHtml(result.bib)}
-                            </div>
+                            </td>
 
-                        </div>
+                            <td>
+                                ${result.lane}
+                            </td>
 
-
-                        <div class="row">
-
-                            <div class="label">
-                                Revision
-                            </div>
-
-                            <div>
+                            <td>
                                 ${result.revision}
-                            </div>
+                            </td>
 
+                            <td>
+                                ${escapeHtml(result.status)}
+                            </td>
+
+                            <td>
+                                ${result.timeMs}
+                            </td>
+
+                        </tr>
+
+                    `;
+
+                });
+
+
+                resultsHtml += `
+
+                        </tbody>
+
+                    </table>
+
+                `;
+
+            }
+
+
+            resultsHtml += `
+                </div>
+            `;
+
+
+            /*
+             * Build EventStats section
+             */
+
+            let statsHtml = `
+                <div class="section">
+
+                    <h2>Event Statistics</h2>
+
+                    <div class="stats">
+            `;
+
+
+            if (!eventStats) {
+
+                statsHtml += `
+                    <p class="empty">
+                        No event statistics found.
+                    </p>
+                `;
+
+            } else {
+
+                statsHtml += `
+
+                    <div class="row">
+
+                        <div class="label">
+                            Event ID
                         </div>
 
+                        <div>
+                            ${escapeHtml(
+                                eventStats.eventId
+                            )}
+                        </div>
 
-                        <div class="row">
+                    </div>
 
-                            <div class="label">
-                                Event ID
-                            </div>
 
-                            <div>
-                                ${escapeHtml(
-                                    result.eventId || ''
-                                )}
-                            </div>
+                    <div class="row">
 
+                        <div class="label">
+                            Athletes Tracked
+                        </div>
+
+                        <div>
+                            ${eventStats.athletesTracked}
+                        </div>
+
+                    </div>
+
+
+                    <div class="row">
+
+                        <div class="label">
+                            Updates Accepted
+                        </div>
+
+                        <div>
+                            ${eventStats.updatesAccepted}
+                        </div>
+
+                    </div>
+
+
+                    <div class="row">
+
+                        <div class="label">
+                            Updates Ignored
+                        </div>
+
+                        <div>
+                            ${eventStats.updatesIgnored}
                         </div>
 
                     </div>
@@ -366,57 +551,159 @@
 
             }
 
-            catch (error) {
 
-                console.error(error);
+            statsHtml += `
+                    </div>
 
-                errorElement.innerText =
-                    'Error: ' + error.message;
+                </div>
+            `;
+
+
+            /*
+             * Build Global statistics section
+             */
+
+            const globalStatsHtml = `
+
+                <div class="section">
+
+                    <h2>Global Statistics</h2>
+
+                    <div class="stats">
+
+                        <div class="row">
+
+                            <div class="label">
+                                Updates Rejected
+                            </div>
+
+                            <div>
+                                ${updatesRejected}
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </div>
+
+            `;
+
+
+            /*
+             * Build Events section
+             */
+
+            let eventsHtml = `
+
+                <div class="section">
+
+                    <h2>Events</h2>
+
+            `;
+
+
+            if (events.length === 0) {
+
+                eventsHtml += `
+                    <p class="empty">
+                        No events found.
+                    </p>
+                `;
+
+            } else {
+
+                eventsHtml += '<ul>';
+
+                events.forEach(event => {
+
+                    eventsHtml += `
+                        <li>
+                            ${escapeHtml(event)}
+                        </li>
+                    `;
+
+                });
+
+                eventsHtml += '</ul>';
 
             }
 
-            finally {
 
-                loadingElement.style.display =
-                    'none';
-
-            }
-
-        }
+            eventsHtml += `
+                </div>
+            `;
 
 
-        function escapeHtml(value) {
+            /*
+             * Display everything
+             */
 
-            return String(value)
-
-                .replaceAll(
-                    '&',
-                    '&amp;'
-                )
-
-                .replaceAll(
-                    '<',
-                    '&lt;'
-                )
-
-                .replaceAll(
-                    '>',
-                    '&gt;'
-                )
-
-                .replaceAll(
-                    '"',
-                    '&quot;'
-                )
-
-                .replaceAll(
-                    "'",
-                    '&#039;'
-                );
+            resultElement.innerHTML =
+                resultsHtml +
+                statsHtml +
+                globalStatsHtml +
+                eventsHtml;
 
         }
 
-    </script>
+        catch (error) {
+
+            console.error(error);
+
+            errorElement.innerText =
+                'Error: ' + error.message;
+
+        }
+
+        finally {
+
+            loadingElement.style.display =
+                'none';
+
+        }
+
+    }
+
+
+    /*
+     * Escape HTML to safely display
+     * values returned by GraphQL.
+     */
+
+    function escapeHtml(value) {
+
+        return String(value)
+
+            .replaceAll(
+                '&',
+                '&amp;'
+            )
+
+            .replaceAll(
+                '<',
+                '&lt;'
+            )
+
+            .replaceAll(
+                '>',
+                '&gt;'
+            )
+
+            .replaceAll(
+                '"',
+                '&quot;'
+            )
+
+            .replaceAll(
+                "'",
+                '&#039;'
+            );
+
+    }
+
+</script>
+```
 
 </body>
 

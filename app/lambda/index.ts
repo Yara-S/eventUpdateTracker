@@ -145,7 +145,6 @@ exports.handler = async (event: any) => {
     const eventStats = await getEventStats(ingest.eventId!)
     
     if(!lastestRevision){
-      console.log("New record")
       //If has no lastest revision, it is a new bib
       eventStats.athletesTracked =  eventStats.athletesTracked + 1
       eventStats.updatesAccepted = eventStats.updatesAccepted + 1
